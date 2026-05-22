@@ -12,6 +12,7 @@ export async function GET(
       where: { id },
       include: {
         flight: true,
+        seats: true,
       },
     })
 
@@ -45,6 +46,7 @@ export async function PUT(
 
     const booking = await db.booking.findUnique({
       where: { id },
+      include: { seats: true },
     })
 
     if (!booking) {
@@ -54,12 +56,14 @@ export async function PUT(
       )
     }
 
-    // If cancelling, restore seat count
+    // If cancelling, restore seat count and free up seats
     if (body.status === 'CANCELLED' && booking.status !== 'CANCELLED') {
       const seatField = `${booking.travelClass.toLowerCase()}Seats` as
         | 'executiveSeats'
         | 'middleSeats'
         | 'lowSeats'
+
+      const numSeats = booking.numSeats || booking.seatNumbers.split(',').length
 
       await db.$transaction(async (tx) => {
         await tx.booking.update({
@@ -67,17 +71,23 @@ export async function PUT(
           data: { status: 'CANCELLED' },
         })
 
+        // Free up the seats
+        await tx.seat.updateMany({
+          where: { bookingId: id },
+          data: { status: 'AVAILABLE', bookingId: null },
+        })
+
         await tx.flight.update({
           where: { id: booking.flightId },
           data: {
-            [seatField]: { increment: 1 },
+            [seatField]: { increment: numSeats },
           },
         })
       })
 
       const updatedBooking = await db.booking.findUnique({
         where: { id },
-        include: { flight: true },
+        include: { flight: true, seats: true },
       })
 
       return NextResponse.json({
@@ -108,7 +118,7 @@ export async function PUT(
     const updatedBooking = await db.booking.update({
       where: { id },
       data: updateData,
-      include: { flight: true },
+      include: { flight: true, seats: true },
     })
 
     return NextResponse.json({
@@ -134,6 +144,7 @@ export async function DELETE(
 
     const booking = await db.booking.findUnique({
       where: { id },
+      include: { seats: true },
     })
 
     if (!booking) {
@@ -143,12 +154,14 @@ export async function DELETE(
       )
     }
 
-    // If booking is confirmed, restore seat count
+    // If booking is confirmed, restore seat count and free seats
     if (booking.status === 'CONFIRMED') {
       const seatField = `${booking.travelClass.toLowerCase()}Seats` as
         | 'executiveSeats'
         | 'middleSeats'
         | 'lowSeats'
+
+      const numSeats = booking.numSeats || booking.seatNumbers.split(',').length
 
       await db.$transaction(async (tx) => {
         await tx.booking.update({
@@ -156,10 +169,16 @@ export async function DELETE(
           data: { status: 'CANCELLED' },
         })
 
+        // Free up the seats
+        await tx.seat.updateMany({
+          where: { bookingId: id },
+          data: { status: 'AVAILABLE', bookingId: null },
+        })
+
         await tx.flight.update({
           where: { id: booking.flightId },
           data: {
-            [seatField]: { increment: 1 },
+            [seatField]: { increment: numSeats },
           },
         })
       })

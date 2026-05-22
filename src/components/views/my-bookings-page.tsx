@@ -13,6 +13,8 @@ interface BookingWithFlight {
   bookingRef: string;
   flightId: string;
   travelClass: string;
+  seatNumbers: string;
+  numSeats: number;
   passengerName: string;
   status: string;
   totalPrice: number;
@@ -205,7 +207,7 @@ export function MyBookingsPage() {
                       </div>
                     </div>
                     <p className="text-xs text-gray-400 mt-1">
-                      Passenger: {booking.passengerName} | Booked: {formatDateTime(booking.createdAt)}
+                      Passenger: {booking.passengerName} | Seats: {booking.seatNumbers || 'N/A'} | Booked: {formatDateTime(booking.createdAt)}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">

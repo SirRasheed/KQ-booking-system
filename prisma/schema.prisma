@@ -41,6 +41,7 @@ model Flight {
   updatedAt       DateTime @updatedAt
 
   bookings        Booking[]
+  seats           Seat[]
 }
 
 model Booking {
@@ -49,6 +50,8 @@ model Booking {
   userId             String
   flightId           String
   travelClass        String   // EXECUTIVE, MIDDLE, LOW
+  seatNumbers        String   @default("") // Comma-separated seat numbers e.g. "1A,1C"
+  numSeats           Int      @default(1)
   passengerName      String
   passengerPassport  String?
   passengerEmail     String?
@@ -61,6 +64,24 @@ model Booking {
 
   user               User     @relation(fields: [userId], references: [id])
   flight             Flight   @relation(fields: [flightId], references: [id])
+  seats              Seat[]
+}
+
+model Seat {
+  id          String   @id @default(cuid())
+  flightId    String
+  seatNumber  String   // e.g., "1A", "5F", "12K"
+  row         Int      // Row number
+  column      String   // Column letter
+  travelClass String   // EXECUTIVE, MIDDLE, LOW
+  status      String   @default("AVAILABLE") // AVAILABLE, OCCUPIED
+  bookingId   String?  // Which booking occupies this seat
+  createdAt   DateTime @default(now())
+
+  flight      Flight   @relation(fields: [flightId], references: [id])
+  booking     Booking? @relation(fields: [bookingId], references: [id])
+
+  @@unique([flightId, seatNumber])
 }
 
 model Employee {

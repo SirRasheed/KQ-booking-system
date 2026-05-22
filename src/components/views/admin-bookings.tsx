@@ -28,6 +28,8 @@ interface BookingWithFlight {
   bookingRef: string;
   userId: string;
   travelClass: string;
+  seatNumbers: string;
+  numSeats: number;
   passengerName: string;
   passengerEmail: string;
   passengerPhone: string;
@@ -174,6 +176,7 @@ export function AdminBookings() {
                   <TableHead>Passenger</TableHead>
                   <TableHead>Flight</TableHead>
                   <TableHead>Class</TableHead>
+                  <TableHead>Seats</TableHead>
                   <TableHead>Price</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Booked</TableHead>
@@ -198,6 +201,10 @@ export function AdminBookings() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{getClassName(booking.travelClass)}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm font-medium">{booking.seatNumbers || 'N/A'}</span>
+                      {booking.numSeats > 1 && <span className="text-xs text-gray-400 ml-1">({booking.numSeats} seats)</span>}
                     </TableCell>
                     <TableCell className="font-semibold">KES {booking.totalPrice.toLocaleString()}</TableCell>
                     <TableCell>
@@ -236,7 +243,7 @@ export function AdminBookings() {
                 ))}
                 {filteredBookings.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                       No bookings found
                     </TableCell>
                   </TableRow>

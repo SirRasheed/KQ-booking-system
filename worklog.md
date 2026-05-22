@@ -141,3 +141,47 @@ Stage Summary:
 - Next-flight suggestion when seats sold out
 - Accessibility improvements (focus styles, touch targets, high contrast)
 - All features verified working end-to-end
+
+---
+Task ID: 22-28
+Agent: Seat Selection Feature
+Task: Add interactive seat map with visual plane layout, multi-seat selection, VIP highlighting, and dynamic pricing
+
+Work Log:
+- Updated Prisma schema: Added `Seat` model (id, flightId, seatNumber, row, column, travelClass, status, bookingId) with unique constraint on [flightId, seatNumber]
+- Updated Prisma schema: Added `seatNumbers` (comma-separated) and `numSeats` fields to Booking model
+- Created /api/seats route (GET with flightId query param) - returns seats grouped by class
+- Updated /api/bookings POST to accept seatNumbers array, validate seats, calculate price per seat × num seats, mark seats as OCCUPIED
+- Updated /api/bookings/[id] PUT/DELETE to free up seats (set AVAILABLE, clear bookingId) and restore flight seat counts on cancellation
+- Updated /api/flights POST to auto-generate seat records when new flights are created
+- Created SeatMap component with:
+  - Visual plane layout (nose, seat grid, tail)
+  - Executive: 2-2 layout (A,C | D,F) with VIP/Crown icons and amber styling
+  - Middle/Premium Economy: 3-3 layout (A,B,C | D,E,F) with aisle
+  - Economy: 3-3-3 layout (A,B,C | D,E,F | H,J,K) with two aisles
+  - Color coding: Available (white), Occupied (red with lock icon), Selected (green with check), VIP (amber with crown)
+  - Tooltips on hover showing seat number and status
+  - Selection counter with max 10 seats
+  - Scrollable seat grid with custom scrollbar
+- Completely rewrote BookingPage with 3-step flow:
+  - Step 1: Choose Travel Class (Executive/Premium/Economy cards with prices and availability)
+  - Step 2: Select Seats (interactive seat map with legend)
+  - Step 3: Passenger Details (form with seat info)
+  - Dynamic pricing: total = price per seat × number of selected seats
+  - Desktop sidebar and mobile summary showing price breakdown
+  - Booking confirmation shows seats reserved
+- Updated seed.ts to generate 2028 individual seats across 12 flights
+- Updated MyBookingsPage to display seat numbers
+- Updated AdminBookings to show Seats column with seat numbers and count
+- Ran db:push --force-reset, reseeded database, regenerated Prisma Client
+- All lint checks pass
+
+Stage Summary:
+- Interactive visual seat map with plane layout for all 3 travel classes
+- Multi-seat selection (up to 10) with dynamic pricing
+- VIP/Executive seats highlighted with amber styling and crown icons
+- Occupied seats clearly marked with red color and lock icons
+- Available seats clickable with green selection highlight
+- Seat numbers stored on bookings, displayed in booking lists
+- Full seat lifecycle: available → occupied (on book) → available (on cancel)
+- Auto seat generation when admin creates new flights

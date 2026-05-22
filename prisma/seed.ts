@@ -1,12 +1,57 @@
 import { db } from '../src/lib/db';
-import { hash } from 'crypto';
 
-function simpleHash(str: string): string {
-  return str; // In production, use bcrypt. For demo, store plain text.
+// Seat layout configuration per travel class
+const EXECUTIVE_LAYOUT = {
+  columns: ['A', 'C', 'D', 'F'], // 2-2 layout with aisle between C and D
+  aisleAfterColumn: 'C',
+  seatsPerRow: 4,
+};
+
+const MIDDLE_LAYOUT = {
+  columns: ['A', 'B', 'C', 'D', 'E', 'F'], // 3-3 layout with aisle between C and D
+  aisleAfterColumn: 'C',
+  seatsPerRow: 6,
+};
+
+const ECONOMY_LAYOUT = {
+  columns: ['A', 'B', 'C', 'D', 'E', 'F', 'H', 'J', 'K'], // 3-3-3 layout with aisles after C and F
+  aisleAfterColumn: 'F',
+  seatsPerRow: 9,
+};
+
+function generateSeats(
+  flightId: string,
+  totalSeats: number,
+  travelClass: string,
+  layout: typeof EXECUTIVE_LAYOUT,
+  startRow: number
+) {
+  const seats: { flightId: string; seatNumber: string; row: number; column: string; travelClass: string; status: string }[] = [];
+  let seatsLeft = totalSeats;
+  let row = startRow;
+
+  while (seatsLeft > 0) {
+    for (const col of layout.columns) {
+      if (seatsLeft <= 0) break;
+      seats.push({
+        flightId,
+        seatNumber: `${row}${col}`,
+        row,
+        column: col,
+        travelClass,
+        status: 'AVAILABLE',
+      });
+      seatsLeft--;
+    }
+    row++;
+  }
+
+  return seats;
 }
 
 async function main() {
   // Clear existing data
+  await db.seat.deleteMany();
   await db.report.deleteMany();
   await db.booking.deleteMany();
   await db.employee.deleteMany();
@@ -298,6 +343,26 @@ async function main() {
     }),
   ]);
 
+  // Generate seats for all flights
+  console.log('Generating seats for all flights...');
+  for (const flight of flights) {
+    const executiveSeats = generateSeats(flight.id, flight.executiveSeats, 'EXECUTIVE', EXECUTIVE_LAYOUT, 1);
+    const middleStartRow = Math.ceil(flight.executiveSeats / EXECUTIVE_LAYOUT.seatsPerRow) + 1;
+    const middleSeats = generateSeats(flight.id, flight.middleSeats, 'MIDDLE', MIDDLE_LAYOUT, middleStartRow);
+    const economyStartRow = middleStartRow + Math.ceil(flight.middleSeats / MIDDLE_LAYOUT.seatsPerRow) + 1;
+    const economySeats = generateSeats(flight.id, flight.lowSeats, 'LOW', ECONOMY_LAYOUT, economyStartRow);
+
+    const allSeats = [...executiveSeats, ...middleSeats, ...economySeats];
+    
+    // Batch create seats
+    for (let i = 0; i < allSeats.length; i += 50) {
+      const batch = allSeats.slice(i, i + 50);
+      await db.seat.createMany({ data: batch });
+    }
+    
+    console.log(`  Flight ${flight.flightNumber}: ${allSeats.length} seats generated`);
+  }
+
   // Create Employees
   const employees = await Promise.all([
     db.employee.create({
@@ -365,97 +430,160 @@ async function main() {
     }),
   ]);
 
-  // Create sample bookings
-  const bookings = await Promise.all([
-    db.booking.create({
-      data: {
-        bookingRef: 'KQ-2025-001',
-        userId: passenger1.id,
-        flightId: flights[0].id,
-        travelClass: 'EXECUTIVE',
-        passengerName: 'Alice Wanjiku',
-        passengerPassport: 'A1234567',
-        passengerEmail: 'alice@example.com',
-        passengerPhone: '+254711000001',
-        passengerNationality: 'Kenyan',
-        status: 'CONFIRMED',
-        totalPrice: 25000,
-      },
-    }),
-    db.booking.create({
-      data: {
-        bookingRef: 'KQ-2025-002',
-        userId: passenger2.id,
-        flightId: flights[2].id,
-        travelClass: 'MIDDLE',
-        passengerName: 'Bob Otieno',
-        passengerPassport: 'B2345678',
-        passengerEmail: 'bob@example.com',
-        passengerPhone: '+254711000002',
-        passengerNationality: 'Kenyan',
-        status: 'CONFIRMED',
-        totalPrice: 180000,
-      },
-    }),
-    db.booking.create({
-      data: {
-        bookingRef: 'KQ-2025-003',
-        userId: passenger3.id,
-        flightId: flights[1].id,
-        travelClass: 'LOW',
-        passengerName: 'Carol Akinyi',
-        passengerPassport: 'C3456789',
-        passengerEmail: 'carol@example.com',
-        passengerPhone: '+254711000003',
-        passengerNationality: 'Ugandan',
-        status: 'CANCELLED',
-        totalPrice: 7000,
-      },
-    }),
-    db.booking.create({
-      data: {
-        bookingRef: 'KQ-2025-004',
-        userId: passenger1.id,
-        flightId: flights[4].id,
-        travelClass: 'MIDDLE',
-        passengerName: 'Alice Wanjiku',
-        passengerPassport: 'A1234567',
-        passengerEmail: 'alice@example.com',
-        passengerPhone: '+254711000001',
-        passengerNationality: 'Kenyan',
-        status: 'CONFIRMED',
-        totalPrice: 75000,
-      },
-    }),
-  ]);
+  // Create sample bookings with seat assignments
+  const booking1 = await db.booking.create({
+    data: {
+      bookingRef: 'KQ-2025-001',
+      userId: passenger1.id,
+      flightId: flights[0].id,
+      travelClass: 'EXECUTIVE',
+      seatNumbers: '1A',
+      numSeats: 1,
+      passengerName: 'Alice Wanjiku',
+      passengerPassport: 'A1234567',
+      passengerEmail: 'alice@example.com',
+      passengerPhone: '+254711000001',
+      passengerNationality: 'Kenyan',
+      status: 'CONFIRMED',
+      totalPrice: 25000,
+    },
+  });
 
-  // Update flight seat counts based on bookings
-  // Flight KQ 101: 1 executive seat taken
+  // Mark seat as occupied
+  await db.seat.updateMany({
+    where: { flightId: flights[0].id, seatNumber: '1A' },
+    data: { status: 'OCCUPIED', bookingId: booking1.id },
+  });
+
+  // Update flight seat count
   await db.flight.update({
     where: { id: flights[0].id },
-    data: { executiveSeats: 19 },
+    data: { executiveSeats: { decrement: 1 } },
   });
 
-  // Flight KQ 201: 1 middle seat taken
+  const booking2 = await db.booking.create({
+    data: {
+      bookingRef: 'KQ-2025-002',
+      userId: passenger2.id,
+      flightId: flights[2].id,
+      travelClass: 'MIDDLE',
+      seatNumbers: '6A,6B',
+      numSeats: 2,
+      passengerName: 'Bob Otieno',
+      passengerPassport: 'B2345678',
+      passengerEmail: 'bob@example.com',
+      passengerPhone: '+254711000002',
+      passengerNationality: 'Kenyan',
+      status: 'CONFIRMED',
+      totalPrice: 360000,
+    },
+  });
+
+  await db.seat.updateMany({
+    where: { flightId: flights[2].id, seatNumber: { in: ['6A', '6B'] } },
+    data: { status: 'OCCUPIED', bookingId: booking2.id },
+  });
+
   await db.flight.update({
     where: { id: flights[2].id },
-    data: { middleSeats: 49 },
+    data: { middleSeats: { decrement: 2 } },
   });
 
-  // Flight KQ 102: 1 low seat taken (then cancelled, seat restored)
-  // Since the booking was cancelled, we don't reduce seats
+  const booking3 = await db.booking.create({
+    data: {
+      bookingRef: 'KQ-2025-003',
+      userId: passenger3.id,
+      flightId: flights[1].id,
+      travelClass: 'LOW',
+      seatNumbers: '16A',
+      numSeats: 1,
+      passengerName: 'Carol Akinyi',
+      passengerPassport: 'C3456789',
+      passengerEmail: 'carol@example.com',
+      passengerPhone: '+254711000003',
+      passengerNationality: 'Ugandan',
+      status: 'CANCELLED',
+      totalPrice: 7000,
+    },
+  });
 
-  // Flight KQ 401: 1 middle seat taken
+  // Cancelled booking - seat is free
+  await db.flight.update({
+    where: { id: flights[1].id },
+    data: { lowSeats: { decrement: 0 } },
+  });
+
+  const booking4 = await db.booking.create({
+    data: {
+      bookingRef: 'KQ-2025-004',
+      userId: passenger1.id,
+      flightId: flights[4].id,
+      travelClass: 'MIDDLE',
+      seatNumbers: '7D,7E,7F',
+      numSeats: 3,
+      passengerName: 'Alice Wanjiku',
+      passengerPassport: 'A1234567',
+      passengerEmail: 'alice@example.com',
+      passengerPhone: '+254711000001',
+      passengerNationality: 'Kenyan',
+      status: 'CONFIRMED',
+      totalPrice: 225000,
+    },
+  });
+
+  await db.seat.updateMany({
+    where: { flightId: flights[4].id, seatNumber: { in: ['7D', '7E', '7F'] } },
+    data: { status: 'OCCUPIED', bookingId: booking4.id },
+  });
+
   await db.flight.update({
     where: { id: flights[4].id },
-    data: { middleSeats: 49 },
+    data: { middleSeats: { decrement: 3 } },
+  });
+
+  // Create sample reports
+  await db.report.createMany({
+    data: [
+      {
+        type: 'TICKETS_SOLD',
+        title: 'Weekly Tickets Sold Report',
+        data: JSON.stringify({ total: 156, executive: 23, middle: 58, economy: 75 }),
+        generatedBy: admin.id,
+      },
+      {
+        type: 'DAILY_BOOKINGS',
+        title: 'Daily Bookings Summary',
+        data: JSON.stringify({ date: new Date().toISOString(), bookings: 32, revenue: 2450000 }),
+        generatedBy: admin.id,
+      },
+      {
+        type: 'CANCELLED_BOOKINGS',
+        title: 'Cancelled Bookings Report',
+        data: JSON.stringify({ total: 8, refundAmount: 540000 }),
+        generatedBy: admin.id,
+      },
+      {
+        type: 'PASSENGER_LIST',
+        title: 'Active Passenger List',
+        data: JSON.stringify({ passengers: [{ name: 'Alice Wanjiku', flight: 'KQ 101' }, { name: 'Bob Otieno', flight: 'KQ 201' }] }),
+        generatedBy: admin.id,
+      },
+      {
+        type: 'EMPLOYEE_ASSIGNMENTS',
+        title: 'Employee Task Assignments',
+        data: JSON.stringify({ assigned: 3, available: 2, onLeave: 1 }),
+        generatedBy: admin.id,
+      },
+    ],
   });
 
   console.log('Seed data created successfully!');
   console.log(`- ${await db.user.count()} users`);
   console.log(`- ${await db.flight.count()} flights`);
+  console.log(`- ${await db.seat.count()} seats`);
   console.log(`- ${await db.employee.count()} employees`);
   console.log(`- ${await db.booking.count()} bookings`);
+  console.log(`- ${await db.report.count()} reports`);
 }
 
 main()

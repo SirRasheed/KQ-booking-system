@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         flight: true,
+        seats: true,
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
       userId,
       flightId,
       travelClass,
+      seatNumbers, // Array of seat numbers e.g. ["1A", "1C"]
       passengerName,
       passengerPassport,
       passengerEmail,
@@ -59,6 +61,13 @@ export async function POST(request: NextRequest) {
     if (!userId || !flightId || !travelClass || !passengerName) {
       return NextResponse.json(
         { error: 'userId, flightId, travelClass, and passengerName are required' },
+        { status: 400 }
+      )
+    }
+
+    if (!seatNumbers || !Array.isArray(seatNumbers) || seatNumbers.length === 0) {
+      return NextResponse.json(
+        { error: 'At least one seat must be selected' },
         { status: 400 }
       )
     }
@@ -82,25 +91,64 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check seat availability
-    const seatField = `${travelClass.toLowerCase()}Seats` as
-      | 'executiveSeats'
-      | 'middleSeats'
-      | 'lowSeats'
+    // Verify all seats exist and are available
+    const seats = await db.seat.findMany({
+      where: {
+        flightId,
+        seatNumber: { in: seatNumbers },
+      },
+    })
+
+    if (seats.length !== seatNumbers.length) {
+      const foundSeats = seats.map(s => s.seatNumber)
+      const notFound = seatNumbers.filter((s: string) => !foundSeats.includes(s))
+      return NextResponse.json(
+        { error: `Seats not found: ${notFound.join(', ')}` },
+        { status: 400 }
+      )
+    }
+
+    // Check all seats are in the correct class
+    const wrongClass = seats.filter(s => s.travelClass !== travelClass)
+    if (wrongClass.length > 0) {
+      return NextResponse.json(
+        { error: `Seats ${wrongClass.map(s => s.seatNumber).join(', ')} are not in ${travelClass} class` },
+        { status: 400 }
+      )
+    }
+
+    // Check all seats are available
+    const occupiedSeats = seats.filter(s => s.status === 'OCCUPIED')
+    if (occupiedSeats.length > 0) {
+      return NextResponse.json(
+        { error: `Seats already taken: ${occupiedSeats.map(s => s.seatNumber).join(', ')}` },
+        { status: 400 }
+      )
+    }
+
+    // Calculate price
     const priceField = `${travelClass.toLowerCase()}Price` as
       | 'executivePrice'
       | 'middlePrice'
       | 'lowPrice'
 
+    const pricePerSeat = flight[priceField]
+    const numSeats = seatNumbers.length
+    const totalPrice = pricePerSeat * numSeats
+
+    // Check overall seat availability
+    const seatField = `${travelClass.toLowerCase()}Seats` as
+      | 'executiveSeats'
+      | 'middleSeats'
+      | 'lowSeats'
+
     const availableSeats = flight[seatField]
-    if (availableSeats <= 0) {
+    if (availableSeats < numSeats) {
       return NextResponse.json(
-        { error: `No seats available in ${travelClass} class` },
+        { error: `Only ${availableSeats} seats available in ${travelClass} class, but ${numSeats} selected` },
         { status: 400 }
       )
     }
-
-    const totalPrice = flight[priceField]
 
     // Generate booking reference
     const currentYear = new Date().getFullYear()
@@ -114,7 +162,7 @@ export async function POST(request: NextRequest) {
     const nextNum = existingBookings.length + 1
     const bookingRef = `KQ-${currentYear}-${String(nextNum).padStart(3, '0')}`
 
-    // Create booking and reduce seat count in transaction
+    // Create booking and update seats in transaction
     const booking = await db.$transaction(async (tx) => {
       const newBooking = await tx.booking.create({
         data: {
@@ -122,6 +170,8 @@ export async function POST(request: NextRequest) {
           userId,
           flightId,
           travelClass,
+          seatNumbers: seatNumbers.join(','),
+          numSeats,
           passengerName,
           passengerPassport: passengerPassport || null,
           passengerEmail: passengerEmail || null,
@@ -131,13 +181,27 @@ export async function POST(request: NextRequest) {
         },
         include: {
           flight: true,
+          seats: true,
         },
       })
 
+      // Mark seats as occupied
+      await tx.seat.updateMany({
+        where: {
+          flightId,
+          seatNumber: { in: seatNumbers },
+        },
+        data: {
+          status: 'OCCUPIED',
+          bookingId: newBooking.id,
+        },
+      })
+
+      // Reduce available seat count
       await tx.flight.update({
         where: { id: flightId },
         data: {
-          [seatField]: { decrement: 1 },
+          [seatField]: { decrement: numSeats },
         },
       })
 
