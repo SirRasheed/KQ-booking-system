@@ -185,3 +185,40 @@ Stage Summary:
 - Seat numbers stored on bookings, displayed in booking lists
 - Full seat lifecycle: available → occupied (on book) → available (on cancel)
 - Auto seat generation when admin creates new flights
+
+---
+Task ID: 29-30
+Agent: Debug & Verification
+Task: Fix "not working" issue - verify seat selection feature works end-to-end
+
+Work Log:
+- Diagnosed that dev server was not running (previous session's server had been killed)
+- Reset and re-pushed Prisma database schema
+- Re-seeded database with 2028 individual seats across 12 flights
+- Verified all API endpoints working (flights, seats, bookings)
+- Tested full booking flow via API: login → get flights → get seats → create booking with seat numbers → SUCCESS
+- Reduced Prisma logging from ['query'] to ['warn', 'error'] to reduce console noise
+- Started dev server with persistent daemon approach (nohup + PID file)
+- Tested full end-to-end flow with browser automation (agent-browser):
+  - Login as Alice (alice@example.com) ✓
+  - Navigate to flight search ✓
+  - Click Executive class to book ✓
+  - Seat map renders with all seats visible ✓
+  - VIP (Executive) seats show amber color with crown icons ✓
+  - Seat 1A shows as OCCUPIED (red with lock) ✓
+  - Clicking available seats selects them (green highlight) ✓
+  - Selecting 2 seats updates total to KES 50,000 (25,000 × 2) ✓
+  - Booking confirmation shows seats reserved (1C, 1D) and booking ref ✓
+- All lint checks pass
+- Dev server running and accessible
+
+Stage Summary:
+- Root cause: dev server was not running (session continuation killed the previous process)
+- Seat selection feature fully verified working:
+  - Visual seat map with color-coded seats (available/occupied/selected/VIP)
+  - Multi-seat selection with dynamic pricing
+  - Occupied seats correctly displayed (red with lock icon)
+  - VIP seats with amber styling and crown icons
+  - Booking flow completes successfully with seat numbers
+- Database properly seeded with seat data
+- Prisma logging cleaned up to reduce noise
