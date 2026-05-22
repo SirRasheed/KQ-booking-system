@@ -21,7 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { BookOpen, Search, XCircle, CheckCircle } from 'lucide-react';
+import { BookOpen, Search, XCircle, CheckCircle, FileText, Pencil, Printer } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 interface BookingWithFlight {
   id: string;
@@ -33,6 +35,8 @@ interface BookingWithFlight {
   passengerName: string;
   passengerEmail: string;
   passengerPhone: string;
+  passengerNationality: string;
+  passengerPassport: string;
   status: string;
   totalPrice: number;
   createdAt: string;
@@ -50,6 +54,17 @@ export function AdminBookings() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [editingBooking, setEditingBooking] = useState<BookingWithFlight | null>(null);
+  const [editForm, setEditForm] = useState({
+    passengerName: '',
+    passengerEmail: '',
+    passengerPhone: '',
+    passengerNationality: '',
+    passengerPassport: '',
+    travelClass: '',
+    status: '',
+  });
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!user || user.role !== 'ADMIN') {
@@ -70,6 +85,41 @@ export function AdminBookings() {
       setNotification({ message: 'Failed to load bookings', type: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditBooking = (booking: BookingWithFlight) => {
+    setEditingBooking(booking);
+    setEditForm({
+      passengerName: booking.passengerName || '',
+      passengerEmail: booking.passengerEmail || '',
+      passengerPhone: booking.passengerPhone || '',
+      passengerNationality: booking.passengerNationality || '',
+      passengerPassport: booking.passengerPassport || '',
+      travelClass: booking.travelClass || '',
+      status: booking.status || '',
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingBooking) return;
+    try {
+      const res = await fetch(`/api/bookings/${editingBooking.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+      if (res.ok) {
+        setNotification({ message: 'Booking updated successfully', type: 'success' });
+        setEditDialogOpen(false);
+        fetchBookings();
+      } else {
+        const data = await res.json();
+        setNotification({ message: data.error || 'Failed to update booking', type: 'error' });
+      }
+    } catch {
+      setNotification({ message: 'Network error', type: 'error' });
     }
   };
 
@@ -136,8 +186,37 @@ export function AdminBookings() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Manage Bookings</h1>
-        <p className="text-gray-500 mt-1">View and manage all flight bookings</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Manage Bookings</h1>
+            <p className="text-gray-500 mt-1">View and manage all flight bookings</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const confirmed = bookings.filter(b => b.status === 'CONFIRMED');
+              const printContent = `
+                <html><head><title>Ticket Report - Kenya Airways</title>
+                <style>body{font-family:Arial,sans-serif;padding:40px}h1{color:#b91c1c;border-bottom:2px solid #b91c1c;padding-bottom:10px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#fee2e2;color:#991b1b}.total{margin-top:20px;font-size:18px;font-weight:bold;color:#b91c1c}.stats{display:flex;gap:30px;margin:15px 0}.stat{padding:10px;background:#fef2f2;border-radius:8px}</style></head>
+                <body><h1>Kenya Airways - Ticket Report</h1>
+                <p>Generated: ${new Date().toLocaleString()}</p>
+                <div class="stats">
+                  <div class="stat"><strong>Total Bookings:</strong> ${bookings.length}</div>
+                  <div class="stat"><strong>Confirmed:</strong> ${confirmed.length}</div>
+                  <div class="stat"><strong>Total Revenue:</strong> KES ${confirmed.reduce((s, b) => s + b.totalPrice, 0).toLocaleString()}</div>
+                </div>
+                <table><tr><th>Reference</th><th>Passenger</th><th>Flight</th><th>Route</th><th>Class</th><th>Seats</th><th>Price</th><th>Status</th></tr>
+                ${filteredBookings.map(b => `<tr><td>${b.bookingRef}</td><td>${b.passengerName}</td><td>${b.flight.flightNumber}</td><td>${b.flight.origin} → ${b.flight.destination}</td><td>${getClassName(b.travelClass)}</td><td>${b.seatNumbers || '-'}</td><td>KES ${b.totalPrice.toLocaleString()}</td><td>${b.status}</td></tr>`).join('')}
+                </table></body></html>`;
+              const win = window.open('', '_blank');
+              if (win) { win.document.write(printContent); win.document.close(); win.print(); }
+            }}
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            Print Ticket Report
+          </Button>
+        </div>
       </div>
 
       {/* Search & Filter */}
@@ -218,8 +297,26 @@ export function AdminBookings() {
                     </TableCell>
                     <TableCell className="text-xs text-gray-500">{formatDateTime(booking.createdAt)}</TableCell>
                     <TableCell className="text-right">
-                      {booking.status === 'CONFIRMED' && (
-                        <div className="flex justify-end gap-1">
+                      <div className="flex justify-end gap-1">
+                        {booking.status === 'CONFIRMED' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-blue-600"
+                            onClick={() => window.open(`/api/bookings/${booking.id}/ticket`, '_blank')}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-amber-600"
+                          onClick={() => handleEditBooking(booking)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {booking.status === 'CONFIRMED' && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -228,6 +325,8 @@ export function AdminBookings() {
                           >
                             <CheckCircle className="h-4 w-4" />
                           </Button>
+                        )}
+                        {booking.status === 'CONFIRMED' && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -236,8 +335,8 @@ export function AdminBookings() {
                           >
                             <XCircle className="h-4 w-4" />
                           </Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -253,6 +352,75 @@ export function AdminBookings() {
           </div>
         </CardContent>
       </Card>
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Booking — {editingBooking?.bookingRef}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>Full Name</Label>
+              <Input value={editForm.passengerName} onChange={(e) => setEditForm({ ...editForm, passengerName: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input type="email" value={editForm.passengerEmail} onChange={(e) => setEditForm({ ...editForm, passengerEmail: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input value={editForm.passengerPhone} onChange={(e) => setEditForm({ ...editForm, passengerPhone: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nationality</Label>
+                <Input value={editForm.passengerNationality} onChange={(e) => setEditForm({ ...editForm, passengerNationality: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Passport / ID</Label>
+                <Input value={editForm.passengerPassport} onChange={(e) => setEditForm({ ...editForm, passengerPassport: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Travel Class</Label>
+                <Select value={editForm.travelClass} onValueChange={(value) => setEditForm({ ...editForm, travelClass: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EXECUTIVE">Executive (A)</SelectItem>
+                    <SelectItem value="MIDDLE">Middle (B)</SelectItem>
+                    <SelectItem value="LOW">Economy (C)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={editForm.status} onValueChange={(value) => setEditForm({ ...editForm, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                    <SelectItem value="COMPLETED">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
+              <p>Flight: {editingBooking?.flight.flightNumber} | Route: {editingBooking?.flight.origin} → {editingBooking?.flight.destination}</p>
+              <p>Seats: {editingBooking?.seatNumbers} | Price: KES {editingBooking?.totalPrice.toLocaleString()}</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+              <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={handleSaveEdit}>Save Changes</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

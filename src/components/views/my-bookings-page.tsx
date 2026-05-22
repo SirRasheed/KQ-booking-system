@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Plane, Search, XCircle, CheckCircle, Clock, FileText, Download } from 'lucide-react';
+import { Plane, Search, XCircle, CheckCircle, Clock, FileText, Download, Pencil } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 interface BookingWithFlight {
   id: string;
@@ -16,6 +18,10 @@ interface BookingWithFlight {
   seatNumbers: string;
   numSeats: number;
   passengerName: string;
+  passengerEmail: string;
+  passengerPhone: string;
+  passengerNationality: string;
+  passengerPassport: string;
   status: string;
   totalPrice: number;
   createdAt: string;
@@ -34,6 +40,15 @@ export function MyBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [searchRef, setSearchRef] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [editingBooking, setEditingBooking] = useState<BookingWithFlight | null>(null);
+  const [editForm, setEditForm] = useState({
+    passengerName: '',
+    passengerEmail: '',
+    passengerPhone: '',
+    passengerNationality: '',
+    passengerPassport: '',
+  });
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -56,6 +71,39 @@ export function MyBookingsPage() {
       setNotification({ message: 'Failed to load bookings', type: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditBooking = (booking: BookingWithFlight) => {
+    setEditingBooking(booking);
+    setEditForm({
+      passengerName: booking.passengerName || '',
+      passengerEmail: booking.passengerEmail || '',
+      passengerPhone: booking.passengerPhone || '',
+      passengerNationality: booking.passengerNationality || '',
+      passengerPassport: booking.passengerPassport || '',
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingBooking) return;
+    try {
+      const res = await fetch(`/api/bookings/${editingBooking.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+      if (res.ok) {
+        setNotification({ message: 'Booking updated successfully', type: 'success' });
+        setEditDialogOpen(false);
+        fetchBookings();
+      } else {
+        const data = await res.json();
+        setNotification({ message: data.error || 'Failed to update booking', type: 'error' });
+      }
+    } catch {
+      setNotification({ message: 'Network error', type: 'error' });
     }
   };
 
@@ -229,6 +277,17 @@ export function MyBookingsPage() {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="text-amber-600 hover:bg-amber-50"
+                        onClick={() => handleEditBooking(booking)}
+                      >
+                        <Pencil className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                    )}
+                    {booking.status === 'CONFIRMED' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="text-red-600 hover:bg-red-50"
                         onClick={() => handleCancelBooking(booking.id)}
                       >
@@ -243,6 +302,47 @@ export function MyBookingsPage() {
           ))}
         </div>
       )}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modify Booking — {editingBooking?.bookingRef}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>Full Name</Label>
+              <Input value={editForm.passengerName} onChange={(e) => setEditForm({ ...editForm, passengerName: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input type="email" value={editForm.passengerEmail} onChange={(e) => setEditForm({ ...editForm, passengerEmail: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input value={editForm.passengerPhone} onChange={(e) => setEditForm({ ...editForm, passengerPhone: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nationality</Label>
+                <Input value={editForm.passengerNationality} onChange={(e) => setEditForm({ ...editForm, passengerNationality: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Passport / ID</Label>
+                <Input value={editForm.passengerPassport} onChange={(e) => setEditForm({ ...editForm, passengerPassport: e.target.value })} />
+              </div>
+            </div>
+            <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
+              <p>Flight: {editingBooking?.flight.flightNumber} | Class: {getClassName(editingBooking?.travelClass || '')}</p>
+              <p>Seats: {editingBooking?.seatNumbers} | Price: KES {editingBooking?.totalPrice.toLocaleString()}</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+              <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={handleSaveEdit}>Save Changes</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

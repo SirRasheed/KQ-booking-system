@@ -17,6 +17,7 @@ import { AdminBookings } from '@/components/views/admin-bookings';
 import { AdminPassengers } from '@/components/views/admin-passengers';
 import { AdminEmployees } from '@/components/views/admin-employees';
 import { AdminReports } from '@/components/views/admin-reports';
+import { ProfilePage } from '@/components/views/profile-page';
 import { Toaster } from '@/components/ui/sonner';
 
 export default function KenyaAirwaysApp() {
@@ -28,6 +29,35 @@ export default function KenyaAirwaysApp() {
       return () => clearTimeout(timer);
     }
   }, [notification, setNotification]);
+
+  useEffect(() => {
+    const { accessibility } = useAppStore.getState();
+
+    // Apply high contrast
+    if (accessibility.highContrast) {
+      document.documentElement.classList.add('high-contrast');
+    } else {
+      document.documentElement.classList.remove('high-contrast');
+    }
+
+    // Apply font size
+    document.documentElement.classList.remove('font-normal', 'font-large', 'font-xlarge');
+    document.documentElement.classList.add(`font-${accessibility.fontSize}`);
+
+    // Subscribe to changes
+    const unsub = useAppStore.subscribe((state) => {
+      if (state.accessibility.highContrast) {
+        document.documentElement.classList.add('high-contrast');
+      } else {
+        document.documentElement.classList.remove('high-contrast');
+      }
+
+      document.documentElement.classList.remove('font-normal', 'font-large', 'font-xlarge');
+      document.documentElement.classList.add(`font-${state.accessibility.fontSize}`);
+    });
+
+    return unsub;
+  }, []);
 
   useEffect(() => {
     // Check for saved session and validate user still exists
@@ -70,6 +100,7 @@ export default function KenyaAirwaysApp() {
       case 'admin-passengers': return <AdminPassengers />;
       case 'admin-employees': return <AdminEmployees />;
       case 'admin-reports': return <AdminReports />;
+      case 'profile': return <ProfilePage />;
       default: return <HomePage />;
     }
   };

@@ -26,6 +26,7 @@ import {
   BookOpen,
   HelpCircle,
   Shield,
+  UserCog,
 } from 'lucide-react';
 
 export function Header() {
@@ -134,6 +135,10 @@ export function Header() {
                 )}
                 {!isAdmin && !isEmployee && (
                   <>
+                    <DropdownMenuItem onClick={() => navigateTo('profile')}>
+                      <UserCog className="mr-2 h-4 w-4" />
+                      My Profile
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigateTo('my-bookings')}>
                       <BookOpen className="mr-2 h-4 w-4" />
                       My Bookings

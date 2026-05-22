@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
       'CANCELLED_BOOKINGS',
       'PASSENGER_LIST',
       'EMPLOYEE_ASSIGNMENTS',
+      'SUCCESSFUL_MATCHES',
     ]
 
     if (!validTypes.includes(type)) {
@@ -183,6 +184,34 @@ export async function POST(request: NextRequest) {
           byStatus,
           byRole,
           employees,
+        }
+        break
+      }
+
+      case 'SUCCESSFUL_MATCHES': {
+        title = 'Successful Matches Report'
+        const assignedEmployees = await db.employee.findMany({
+          where: { status: 'ASSIGNED' },
+        })
+        const matches = assignedEmployees
+          .filter((e) => e.assignedTask)
+          .map((e) => ({
+            employee: e.name,
+            role:
+              e.role === 'TICKETING_OFFICER'
+                ? 'Ticketing Officer'
+                : e.role === 'CUSTOMER_SERVICE'
+                  ? 'Customer Service'
+                  : e.role === 'GROUND_STAFF'
+                    ? 'Ground Staff'
+                    : e.role === 'SUPERVISOR'
+                      ? 'Supervisor'
+                      : e.role,
+            task: e.assignedTask,
+          }))
+        reportData = {
+          totalMatches: matches.length,
+          matches,
         }
         break
       }

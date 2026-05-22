@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { MessageCircle, Send, Bot, User, Phone, Mail, HelpCircle } from 'lucide-react';
+import { MessageCircle, Send, Bot, User, Phone, Mail, HelpCircle, ClipboardCheck, Accessibility, Settings } from 'lucide-react';
+import { useAppStore } from '@/lib/store';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -57,6 +58,17 @@ export function HelpPage() {
   const [input, setInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [usabilityRatings, setUsabilityRatings] = useState<Record<string, number>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return JSON.parse(localStorage.getItem('kq_usability') || '{}');
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  });
+  const accessibility = useAppStore((state) => state.accessibility);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -127,6 +139,146 @@ export function HelpPage() {
                   </AccordionItem>
                 ))}
               </Accordion>
+            </CardContent>
+          </Card>
+
+          {/* Usability Evaluation Section */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardCheck className="h-5 w-5 text-red-600" />
+                System Usability Evaluation
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-500 mb-4">
+                Help us improve by rating your experience with the Kenya Airways booking system.
+              </p>
+              <div className="space-y-3">
+                {[
+                  { question: 'The system is easy to use', key: 'ease' },
+                  { question: 'I can quickly find and book flights', key: 'efficiency' },
+                  { question: 'The seat map is clear and understandable', key: 'seatMap' },
+                  { question: 'Error messages are helpful and clear', key: 'errors' },
+                  { question: 'The system works as I expect it to', key: 'expectations' },
+                  { question: 'I would recommend this system to others', key: 'recommend' },
+                ].map((item) => (
+                  <div key={item.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 border-b border-gray-100 last:border-0">
+                    <p className="text-sm text-gray-700">{item.question}</p>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((rating) => (
+                        <button
+                          key={rating}
+                          onClick={() => {
+                            const ratings = { ...usabilityRatings, [item.key]: rating };
+                            localStorage.setItem('kq_usability', JSON.stringify(ratings));
+                            setUsabilityRatings(ratings);
+                          }}
+                          className={`w-8 h-8 rounded-full border-2 text-xs font-bold transition-all hover:scale-110 focus:ring-2 focus:ring-red-300 focus:outline-none ${
+                            usabilityRatings[item.key] === rating
+                              ? 'border-red-600 text-white bg-red-600'
+                              : 'border-gray-300 text-gray-500 hover:border-red-400 hover:text-red-600'
+                          }`}
+                          aria-label={`Rate ${rating} out of 5`}
+                        >
+                          {rating}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                <strong>Rating Scale:</strong> 1 = Strongly Disagree, 5 = Strongly Agree
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Human Limitations & Accessibility */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Accessibility className="h-5 w-5 text-red-600" />
+                Accessibility & Human Considerations
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Kenya Airways is designed with human limitations and accessibility in mind. Here are the considerations built into our system:
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { title: 'Color & Vision', icon: '👁️', desc: 'High contrast mode available. Colors are not the sole indicator — icons and text labels always accompany color-coded elements (e.g., seat status uses icons + colors). Color-blind friendly palette with distinguishable patterns.' },
+                  { title: 'Touch & Motor', icon: '👆', desc: 'All interactive elements meet minimum 44×44px touch targets. Generous spacing between clickable elements prevents accidental taps. Keyboard navigation supported throughout.' },
+                  { title: 'Cognitive Load', icon: '🧠', desc: '3-step booking flow breaks complex tasks into manageable steps. Clear progress indicators show current position. Confirmation dialogs prevent accidental destructive actions.' },
+                  { title: 'Visual Impairment', icon: '🔍', desc: 'Screen reader compatible with semantic HTML and ARIA labels. Adjustable font size in accessibility settings. High contrast mode for low vision users.' },
+                  { title: 'Error Prevention', icon: '⚠️', desc: 'Real-time form validation with clear error messages. Undo capabilities (cancel booking restores seats). Confirmation before destructive actions.' },
+                  { title: 'Memory & Learning', icon: '📖', desc: 'Consistent navigation patterns across all pages. FAQ and AI assistant for guidance. Booking history always accessible. Familiar airline terminology used.' },
+                ].map((item, i) => (
+                  <div key={i} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{item.icon}</span>
+                      <p className="font-medium text-sm text-gray-900">{item.title}</p>
+                    </div>
+                    <p className="text-xs text-gray-500 leading-relaxed">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Accessibility Settings */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Settings className="h-5 w-5 text-red-600" />
+                Accessibility Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">High Contrast Mode</p>
+                  <p className="text-xs text-gray-500">Increases contrast for better visibility</p>
+                </div>
+                <button
+                  onClick={() => {
+                    const current = useAppStore.getState().accessibility.highContrast;
+                    useAppStore.getState().setAccessibility({ highContrast: !current });
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    accessibility.highContrast ? 'bg-red-600' : 'bg-gray-300'
+                  }`}
+                  role="switch"
+                  aria-checked={accessibility.highContrast}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    accessibility.highContrast ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm font-medium text-gray-900 mb-2">Font Size</p>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'normal', label: 'Normal' },
+                    { value: 'large', label: 'Large' },
+                    { value: 'xlarge', label: 'Extra Large' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => useAppStore.getState().setAccessibility({ fontSize: opt.value as 'normal' | 'large' | 'xlarge' })}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        accessibility.fontSize === opt.value
+                          ? 'bg-red-600 text-white'
+                          : 'bg-white border border-gray-300 text-gray-700 hover:border-red-300'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
 

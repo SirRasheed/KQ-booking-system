@@ -38,7 +38,7 @@ interface Seat {
 }
 
 export function BookingPage() {
-  const { user, selectedFlightId, selectedTravelClass, setCurrentPage, setNotification, setUser } = useAppStore();
+  const { user, selectedFlightId, selectedTravelClass, setCurrentPage, setNotification, setUser, setSelectedFlightId, setSelectedTravelClass } = useAppStore();
   const [flight, setFlight] = useState<Flight | null>(null);
   const [seats, setSeats] = useState<Seat[]>([]);
   const [loading, setLoading] = useState(false);
@@ -137,6 +137,48 @@ export function BookingPage() {
 
   const getOccupiedSeatsCount = () => {
     return seats.filter(s => s.travelClass === travelClass && s.status === 'OCCUPIED').length;
+  };
+
+  const [nextFlightSuggestion, setNextFlightSuggestion] = useState<{
+    id: string; flightNumber: string; departureTime: string; seats: number;
+  } | null>(null);
+  const [checkingNext, setCheckingNext] = useState(false);
+
+  useEffect(() => {
+    if (flight && getAvailableSeatsCount() <= 0) {
+      findNextAvailableFlight();
+    } else {
+      setNextFlightSuggestion(null);
+    }
+  }, [travelClass, flight]);
+
+  const findNextAvailableFlight = async () => {
+    if (!flight) return;
+    setCheckingNext(true);
+    try {
+      const seatField = travelClass === 'EXECUTIVE' ? 'executiveSeats' : travelClass === 'MIDDLE' ? 'middleSeats' : 'lowSeats';
+      const res = await fetch(`/api/flights?origin=${encodeURIComponent(flight.origin)}&destination=${encodeURIComponent(flight.destination)}`);
+      const data = await res.json();
+      const flights = (data.flights || []) as Flight[];
+      const now = new Date();
+      const next = flights
+        .filter(f => f.id !== flight.id && new Date(f.departureTime) > now && f[seatField] > 0)
+        .sort((a, b) => new Date(a.departureTime).getTime() - new Date(b.departureTime).getTime())[0];
+      if (next) {
+        setNextFlightSuggestion({
+          id: next.id,
+          flightNumber: next.flightNumber,
+          departureTime: next.departureTime,
+          seats: next[seatField],
+        });
+      } else {
+        setNextFlightSuggestion(null);
+      }
+    } catch {
+      setNextFlightSuggestion(null);
+    } finally {
+      setCheckingNext(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -325,6 +367,41 @@ export function BookingPage() {
                   </button>
                 ))}
               </div>
+              {getAvailableSeatsCount() <= 0 && (
+                <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <div className="flex items-center gap-2 text-amber-700 text-sm font-medium mb-1">
+                    <AlertCircle className="h-4 w-4" />
+                    {getClassName()} is sold out on this flight
+                  </div>
+                  {checkingNext ? (
+                    <p className="text-xs text-gray-500">Checking next available flight...</p>
+                  ) : nextFlightSuggestion ? (
+                    <div className="mt-1 p-2 bg-green-50 rounded-lg border border-green-200">
+                      <p className="text-xs font-medium text-green-700">Next available flight:</p>
+                      <p className="text-xs text-green-600 mt-0.5">
+                        {nextFlightSuggestion.flightNumber} — {formatDateTime(nextFlightSuggestion.departureTime)}
+                      </p>
+                      <p className="text-[11px] text-green-500">
+                        {nextFlightSuggestion.seats} seats available in {getClassName()}
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="mt-1.5 bg-green-600 hover:bg-green-700 text-white text-xs h-7 px-3"
+                        onClick={() => {
+                          setSelectedFlightId(nextFlightSuggestion.id);
+                          setSelectedTravelClass(travelClass);
+                          setCurrentPage('booking');
+                        }}
+                      >
+                        Book This Flight Instead
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500">No other flights available for this route.</p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -426,9 +503,38 @@ export function BookingPage() {
                 </div>
 
                 {getAvailableSeatsCount() <= 0 && (
-                  <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg text-red-700 text-sm">
-                    <AlertCircle className="h-4 w-4" />
-                    No seats available in this class. Please choose another class.
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div className="flex items-center gap-2 text-red-700 text-sm font-medium mb-2">
+                      <AlertCircle className="h-4 w-4" />
+                      This class is fully booked on this flight.
+                    </div>
+                    {checkingNext ? (
+                      <p className="text-sm text-gray-500">Checking next available flight...</p>
+                    ) : nextFlightSuggestion ? (
+                      <div className="mt-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                        <p className="text-sm font-medium text-green-700">Next available flight:</p>
+                        <p className="text-sm text-green-600 mt-1">
+                          {nextFlightSuggestion.flightNumber} — {formatDateTime(nextFlightSuggestion.departureTime)}
+                        </p>
+                        <p className="text-xs text-green-500 mt-0.5">
+                          {nextFlightSuggestion.seats} seats available in {getClassName()}
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="mt-2 bg-green-600 hover:bg-green-700 text-white"
+                          onClick={() => {
+                            setSelectedFlightId(nextFlightSuggestion.id);
+                            setSelectedTravelClass(travelClass);
+                            setCurrentPage('booking');
+                          }}
+                        >
+                          Book This Flight Instead
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No other flights available for this route. Please try a different class.</p>
+                    )}
                   </div>
                 )}
 

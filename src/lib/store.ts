@@ -13,7 +13,8 @@ export type PageView =
   | 'admin-bookings'
   | 'admin-passengers'
   | 'admin-employees'
-  | 'admin-reports';
+  | 'admin-reports'
+  | 'profile';
 
 export interface User {
   id: string;
@@ -52,6 +53,13 @@ interface AppState {
   // Notifications
   notification: { message: string; type: 'success' | 'error' | 'info' } | null;
   setNotification: (n: { message: string; type: 'success' | 'error' | 'info' } | null) => void;
+
+  // Accessibility
+  accessibility: {
+    highContrast: boolean;
+    fontSize: 'normal' | 'large' | 'xlarge';
+  };
+  setAccessibility: (settings: Partial<AppState['accessibility']>) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -81,4 +89,27 @@ export const useAppStore = create<AppState>((set) => ({
   // Notifications
   notification: null,
   setNotification: (n) => set({ notification: n }),
+
+  // Accessibility
+  accessibility: { highContrast: false, fontSize: 'normal' },
+  setAccessibility: (settings) => {
+    set((state) => {
+      const newA11y = { ...state.accessibility, ...settings };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('kq_accessibility', JSON.stringify(newA11y));
+      }
+      return { accessibility: newA11y };
+    });
+  },
 }));
+
+// Load saved accessibility settings from localStorage
+const savedA11y = typeof window !== 'undefined' ? localStorage.getItem('kq_accessibility') : null;
+if (savedA11y) {
+  try {
+    const parsed = JSON.parse(savedA11y);
+    useAppStore.setState({ accessibility: parsed });
+  } catch {
+    // Ignore invalid saved data
+  }
+}

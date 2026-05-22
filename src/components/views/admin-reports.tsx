@@ -141,6 +141,7 @@ export function AdminReports() {
       case 'CANCELLED_BOOKINGS': return 'Cancelled Bookings';
       case 'PASSENGER_LIST': return 'Passenger List';
       case 'EMPLOYEE_ASSIGNMENTS': return 'Employee Assignments';
+      case 'SUCCESSFUL_MATCHES': return 'Successful Matches';
       default: return type;
     }
   };
@@ -219,6 +220,7 @@ export function AdminReports() {
                 <SelectItem value="CANCELLED_BOOKINGS">Cancelled Bookings</SelectItem>
                 <SelectItem value="PASSENGER_LIST">Passenger List</SelectItem>
                 <SelectItem value="EMPLOYEE_ASSIGNMENTS">Employee Assignments</SelectItem>
+                <SelectItem value="SUCCESSFUL_MATCHES">Successful Matches</SelectItem>
               </SelectContent>
             </Select>
             <Button

@@ -175,3 +175,73 @@
     border: 1px solid;
   }
 }
+
+/* Accessibility: High Contrast Mode */
+.high-contrast {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 5%;
+  --card-foreground: 0 0% 100%;
+  --border: 0 0% 40%;
+}
+
+.high-contrast body,
+.high-contrast .bg-white,
+.high-contrast .bg-background {
+  background-color: #000 !important;
+  color: #fff !important;
+}
+
+.high-contrast .bg-gray-50,
+.high-contrast .bg-gray-100 {
+  background-color: #111 !important;
+}
+
+.high-contrast .text-gray-900,
+.high-contrast .text-gray-800,
+.high-contrast .text-gray-700 {
+  color: #fff !important;
+}
+
+.high-contrast .text-gray-500,
+.high-contrast .text-gray-600 {
+  color: #ccc !important;
+}
+
+.high-contrast .border-gray-200,
+.high-contrast .border-gray-100 {
+  border-color: #555 !important;
+}
+
+/* Accessibility: Font Sizes */
+.font-large {
+  font-size: 18px;
+}
+
+.font-xlarge {
+  font-size: 20px;
+}
+
+.font-large h1 {
+  font-size: 2.5rem;
+}
+
+.font-xlarge h1 {
+  font-size: 3rem;
+}
+
+.font-large .text-sm {
+  font-size: 0.938rem;
+}
+
+.font-xlarge .text-sm {
+  font-size: 1.063rem;
+}
+
+.font-large .text-xs {
+  font-size: 0.813rem;
+}
+
+.font-xlarge .text-xs {
+  font-size: 0.938rem;
+}

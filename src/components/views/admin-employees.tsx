@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Users, Plus, Pencil, Trash2, UserCheck, Shield } from 'lucide-react';
+import { Users, Plus, Pencil, Trash2, UserCheck, Shield, Download } from 'lucide-react';
 
 interface Employee {
   id: string;
@@ -267,32 +267,79 @@ export function AdminEmployees() {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <UserCheck className="h-5 w-5 text-red-600" />
-            Employee Matching - Quick Task Assignment
+            Match Employee to Opening
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {employees.filter(e => e.status === 'AVAILABLE').map((emp) => (
-              <Card key={emp.id} className="border-dashed">
-                <CardContent className="p-3">
-                  <p className="font-medium text-sm">{emp.name}</p>
-                  <p className="text-xs text-gray-500">{getRoleLabel(emp.role)}</p>
-                  <Select onValueChange={(task) => handleAssignTask(emp.id, task)}>
-                    <SelectTrigger className="mt-2 h-8 text-xs">
-                      <SelectValue placeholder="Assign task..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TASK_OPTIONS.map((task) => (
-                        <SelectItem key={task} value={task}>{task}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CardContent>
-              </Card>
-            ))}
-            {employees.filter(e => e.status === 'AVAILABLE').length === 0 && (
-              <p className="text-sm text-gray-500 col-span-full">No available employees to assign</p>
-            )}
+          <div className="space-y-4">
+            {/* Openings that need to be filled */}
+            {[
+              { task: 'Process daily ticket bookings', preferredRole: 'TICKETING_OFFICER', department: 'Ticketing' },
+              { task: 'Handle customer inquiries', preferredRole: 'CUSTOMER_SERVICE', department: 'Customer Relations' },
+              { task: 'Supervise daily operations', preferredRole: 'SUPERVISOR', department: 'Operations' },
+              { task: 'Assist with check-in process', preferredRole: 'GROUND_STAFF', department: 'Ground Operations' },
+              { task: 'Manage boarding procedures', preferredRole: 'GROUND_STAFF', department: 'Ground Operations' },
+              { task: 'Handle baggage claims', preferredRole: 'CUSTOMER_SERVICE', department: 'Customer Relations' },
+              { task: 'Coordinate flight schedules', preferredRole: 'SUPERVISOR', department: 'Operations' },
+              { task: 'Process refunds and cancellations', preferredRole: 'TICKETING_OFFICER', department: 'Ticketing' },
+            ].map((opening, idx) => {
+              // Check if someone is already assigned to this task
+              const alreadyAssigned = employees.find(e => e.assignedTask === opening.task && e.status === 'ASSIGNED');
+              // Find best match: available employees with matching role, then any available
+              const roleMatch = employees.filter(e => e.status === 'AVAILABLE' && e.role === opening.preferredRole);
+              const anyAvailable = employees.filter(e => e.status === 'AVAILABLE');
+              const bestMatch = roleMatch[0] || anyAvailable[0];
+              const matchScore = bestMatch ? (bestMatch.role === opening.preferredRole ? 'Excellent' : 'Good') : null;
+
+              return (
+                <div key={idx} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border ${
+                  alreadyAssigned ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                }`}>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm">{opening.task}</p>
+                      {alreadyAssigned ? (
+                        <Badge className="bg-green-100 text-green-700 text-[10px]">Filled</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-amber-600 border-amber-200 text-[10px]">Open</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Preferred: {getRoleLabel(opening.preferredRole)} • {opening.department}
+                    </p>
+                    {alreadyAssigned && (
+                      <p className="text-xs text-green-600 mt-0.5">
+                        Assigned to: {alreadyAssigned.name}
+                      </p>
+                    )}
+                  </div>
+                  {!alreadyAssigned && (
+                    <div className="flex items-center gap-2">
+                      {bestMatch ? (
+                        <>
+                          <div className="text-right">
+                            <p className="text-sm font-medium">{bestMatch.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {getRoleLabel(bestMatch.role)} • Match: <span className={matchScore === 'Excellent' ? 'text-green-600 font-medium' : 'text-amber-600 font-medium'}>{matchScore}</span>
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                            onClick={() => handleAssignTask(bestMatch.id, opening.task)}
+                          >
+                            <UserCheck className="h-3.5 w-3.5 mr-1" />
+                            Assign
+                          </Button>
+                        </>
+                      ) : (
+                        <p className="text-xs text-gray-400">No available employees</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -346,6 +393,39 @@ export function AdminEmployees() {
                 ))}
               </TableBody>
             </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Print Matches Report */}
+      <Card className="mt-6 shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-sm">Successful Matches Report</p>
+              <p className="text-xs text-gray-500">Print a report of all employee-task assignments</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const assigned = employees.filter(e => e.status === 'ASSIGNED' && e.assignedTask);
+                const printContent = `
+                  <html><head><title>Successful Matches Report</title>
+                  <style>body{font-family:Arial,sans-serif;padding:40px}h1{color:#b91c1c}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#fee2e2;color:#991b1b}</style></head>
+                  <body><h1>Kenya Airways - Successful Matches Report</h1>
+                  <p>Generated: ${new Date().toLocaleString()}</p>
+                  <p>Total Matches: ${assigned.length}</p>
+                  <table><tr><th>Employee</th><th>Role</th><th>Department</th><th>Assigned Task</th></tr>
+                  ${assigned.map(e => `<tr><td>${e.name}</td><td>${getRoleLabel(e.role)}</td><td>${e.department || '-'}</td><td>${e.assignedTask}</td></tr>`).join('')}
+                  </table></body></html>`;
+                const win = window.open('', '_blank');
+                if (win) { win.document.write(printContent); win.document.close(); win.print(); }
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Print Matches Report
+            </Button>
           </div>
         </CardContent>
       </Card>
