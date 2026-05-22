@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  password     String
+  name         String
+  role         String   @default("PASSENGER") // PASSENGER, ADMIN, EMPLOYEE
+  phone        String?
+  nationality  String?
+  passportId   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  bookings     Booking[]
+  reports      Report[]
+}
+
+model Flight {
+  id              String   @id @default(cuid())
+  flightNumber    String   @unique
+  origin          String
+  destination     String
+  departureTime   DateTime
+  arrivalTime     DateTime
+  executiveSeats  Int      @default(20)
+  middleSeats     Int      @default(50)
+  lowSeats        Int      @default(100)
+  executivePrice  Float
+  middlePrice     Float
+  lowPrice        Float
+  status          String   @default("SCHEDULED") // SCHEDULED, BOARDING, DEPARTED, ARRIVED, CANCELLED
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  bookings        Booking[]
+}
+
+model Booking {
+  id                 String   @id @default(cuid())
+  bookingRef         String   @unique
+  userId             String
+  flightId           String
+  travelClass        String   // EXECUTIVE, MIDDLE, LOW
+  passengerName      String
+  passengerPassport  String?
+  passengerEmail     String?
+  passengerPhone     String?
+  passengerNationality String?
+  status             String   @default("CONFIRMED") // CONFIRMED, CANCELLED, COMPLETED
+  totalPrice         Float
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user               User     @relation(fields: [userId], references: [id])
+  flight             Flight   @relation(fields: [flightId], references: [id])
+}
+
+model Employee {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  phone         String?
+  role          String   // TICKETING_OFFICER, CUSTOMER_SERVICE, GROUND_STAFF, SUPERVISOR
+  department    String?
+  assignedTask  String?
+  status        String   @default("AVAILABLE") // AVAILABLE, ASSIGNED, ON_LEAVE
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  type        String   // TICKETS_SOLD, DAILY_BOOKINGS, CANCELLED_BOOKINGS, PASSENGER_LIST, EMPLOYEE_ASSIGNMENTS
+  title       String
+  data        String   // JSON string
+  generatedBy String
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [generatedBy], references: [id])
+}
