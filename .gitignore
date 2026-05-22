@@ -52,3 +52,20 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# Database
+db/*.db
+db/*.db-journal
+
+# Dev / PID files
+.dev-pid
+.zscripts/
+
+# Examples
+/examples/
+
+# Mini-services (local only)
+/mini-services/
+
+# Worklog (development artifact)
+worklog.md
