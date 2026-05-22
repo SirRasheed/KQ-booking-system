@@ -59,7 +59,7 @@ export function HomePage() {
                 size="lg"
                 variant="outline"
                 onClick={() => setCurrentPage('help')}
-                className="border-white text-white hover:bg-white/10 h-12"
+                className="border-white text-white bg-transparent hover:bg-white/10 h-12"
               >
                 Learn More
               </Button>

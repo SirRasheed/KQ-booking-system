@@ -222,3 +222,24 @@ Stage Summary:
   - Booking flow completes successfully with seat numbers
 - Database properly seeded with seat data
 - Prisma logging cleaned up to reduce noise
+
+---
+Task ID: 31-33
+Agent: Bug Fix
+Task: Fix booking API internal server error (P2003) and Learn More text visibility
+
+Work Log:
+- Diagnosed booking API P2003 error: userId from stale Zustand/localStorage session references user that no longer exists after DB re-seed
+- Added user existence validation in POST /api/bookings before creating the booking (returns 401 instead of 500)
+- Updated BookingPage to handle 401 response: clears stale user from localStorage, resets Zustand state, redirects to login with "Session expired" message
+- Fixed "Learn More" button text invisible: variant="outline" adds bg-background (white), making white text invisible on white. Added bg-transparent to className
+- Improved session validation on page load: now verifies user exists via /api/auth/me before restoring from localStorage
+- Re-seeded database with fresh data
+- Lint passes cleanly
+- Dev server running
+
+Stage Summary:
+- Booking API now returns proper 401 for invalid userId instead of 500 internal server error
+- Frontend handles expired sessions gracefully (redirects to login)
+- Learn More button text now visible against red gradient background
+- Session validation on app load prevents stale user IDs from being used

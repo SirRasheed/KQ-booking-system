@@ -30,13 +30,28 @@ export default function KenyaAirwaysApp() {
   }, [notification, setNotification]);
 
   useEffect(() => {
-    // Check for saved session
+    // Check for saved session and validate user still exists
     const savedUser = localStorage.getItem('kq_user');
     if (savedUser) {
       try {
         const user = JSON.parse(savedUser);
-        useAppStore.getState().setUser(user);
-      } catch {}
+        // Verify user still exists in DB
+        fetch(`/api/auth/me?userId=${user.id}`)
+          .then(res => {
+            if (res.ok) {
+              useAppStore.getState().setUser(user);
+            } else {
+              // User no longer exists, clear stale session
+              localStorage.removeItem('kq_user');
+            }
+          })
+          .catch(() => {
+            // Network error, still set user optimistically
+            useAppStore.getState().setUser(user);
+          });
+      } catch {
+        localStorage.removeItem('kq_user');
+      }
     }
   }, []);
 

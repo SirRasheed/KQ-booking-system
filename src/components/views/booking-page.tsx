@@ -38,7 +38,7 @@ interface Seat {
 }
 
 export function BookingPage() {
-  const { user, selectedFlightId, selectedTravelClass, setCurrentPage, setNotification } = useAppStore();
+  const { user, selectedFlightId, selectedTravelClass, setCurrentPage, setNotification, setUser } = useAppStore();
   const [flight, setFlight] = useState<Flight | null>(null);
   const [seats, setSeats] = useState<Seat[]>([]);
   const [loading, setLoading] = useState(false);
@@ -174,7 +174,15 @@ export function BookingPage() {
         setBookingComplete(true);
         setNotification({ message: 'Booking confirmed!', type: 'success' });
       } else {
-        setNotification({ message: data.error || 'Booking failed', type: 'error' });
+        // If user not found (stale session), force re-login
+        if (res.status === 401) {
+          localStorage.removeItem('kq_user');
+          setUser(null);
+          setNotification({ message: 'Session expired. Please log in again.', type: 'error' });
+          setCurrentPage('login');
+        } else {
+          setNotification({ message: data.error || 'Booking failed', type: 'error' });
+        }
       }
     } catch {
       setNotification({ message: 'Network error. Please try again.', type: 'error' });

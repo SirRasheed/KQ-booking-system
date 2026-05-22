@@ -80,6 +80,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Verify user exists
+    const user = await db.user.findUnique({
+      where: { id: userId },
+    })
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found. Please log in again.' },
+        { status: 401 }
+      )
+    }
+
     const flight = await db.flight.findUnique({
       where: { id: flightId },
     })
