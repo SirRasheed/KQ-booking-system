@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plane, Search, Clock, ArrowRight, Users, AlertCircle } from 'lucide-react';
+import { Plane, Search, Clock, ArrowRight, Users, AlertCircle, Lightbulb } from 'lucide-react';
 
 interface Flight {
   id: string;
@@ -89,6 +89,28 @@ export function FlightSearchPage() {
   const filteredFlights = statusFilter === 'all' 
     ? flights 
     : flights.filter(f => f.status === statusFilter);
+
+  // Find next available flights for sold-out destinations
+  const getNextAvailableFlight = (currentFlight: Flight, travelClass: string) => {
+    const getSeats = (f: Flight, cls: string) => {
+      switch (cls) {
+        case 'EXECUTIVE': return f.executiveSeats;
+        case 'MIDDLE': return f.middleSeats;
+        case 'LOW': return f.lowSeats;
+        default: return 0;
+      }
+    };
+
+    return flights
+      .filter(f => 
+        f.id !== currentFlight.id && 
+        f.destination === currentFlight.destination && 
+        f.origin === currentFlight.origin &&
+        new Date(f.departureTime) > new Date(currentFlight.departureTime) &&
+        getSeats(f, travelClass) > 0
+      )
+      .sort((a, b) => new Date(a.departureTime).getTime() - new Date(b.departureTime).getTime())[0] || null;
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -217,24 +239,38 @@ export function FlightSearchPage() {
                           { label: 'Executive', class: 'EXECUTIVE', seats: flight.executiveSeats, price: flight.executivePrice },
                           { label: 'Middle', class: 'MIDDLE', seats: flight.middleSeats, price: flight.middlePrice },
                           { label: 'Economy', class: 'LOW', seats: flight.lowSeats, price: flight.lowPrice },
-                        ].map((opt) => (
-                          <div
-                            key={opt.class}
-                            className={`p-3 rounded-lg border text-center ${
-                              opt.seats > 0 ? 'border-gray-200 hover:border-red-300 cursor-pointer' : 'border-gray-100 bg-gray-50 opacity-50'
-                            }`}
-                            onClick={() => opt.seats > 0 && handleBook(flight.id, opt.class)}
-                          >
-                            <p className="text-xs text-gray-500 mb-1">{opt.label}</p>
-                            <p className="font-bold text-sm text-gray-900">{formatPrice(opt.price)}</p>
-                            <div className="flex items-center justify-center gap-1 mt-1">
-                              <Users className="h-3 w-3 text-gray-400" />
-                              <span className={`text-xs ${opt.seats > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                {opt.seats} seats
-                              </span>
+                        ].map((opt) => {
+                          const nextFlight = opt.seats <= 0 ? getNextAvailableFlight(flight, opt.class) : null;
+                          return (
+                            <div
+                              key={opt.class}
+                              className={`p-3 rounded-lg border text-center ${
+                                opt.seats > 0 ? 'border-gray-200 hover:border-red-300 cursor-pointer' : 'border-gray-100 bg-gray-50'
+                              }`}
+                              onClick={() => opt.seats > 0 && handleBook(flight.id, opt.class)}
+                            >
+                              <p className="text-xs text-gray-500 mb-1">{opt.label}</p>
+                              <p className="font-bold text-sm text-gray-900">{formatPrice(opt.price)}</p>
+                              <div className="flex items-center justify-center gap-1 mt-1">
+                                <Users className="h-3 w-3 text-gray-400" />
+                                <span className={`text-xs ${opt.seats > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                  {opt.seats > 0 ? `${opt.seats} seats` : 'Sold out'}
+                                </span>
+                              </div>
+                              {opt.seats <= 0 && nextFlight && (
+                                <div className="mt-2 pt-2 border-t border-gray-200">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <Lightbulb className="h-3 w-3 text-amber-500" />
+                                    <span className="text-[10px] text-amber-600 font-medium">Next: {nextFlight.flightNumber}</span>
+                                  </div>
+                                  <p className="text-[10px] text-gray-400 mt-0.5">
+                                    {new Date(nextFlight.departureTime).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}
+                                  </p>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   </CardContent>

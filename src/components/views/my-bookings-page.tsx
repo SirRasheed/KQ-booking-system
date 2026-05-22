@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Plane, Search, XCircle, CheckCircle, Clock, FileText } from 'lucide-react';
+import { Plane, Search, XCircle, CheckCircle, Clock, FileText, Download } from 'lucide-react';
 
 interface BookingWithFlight {
   id: string;
@@ -212,6 +212,17 @@ export function MyBookingsPage() {
                     <div className="text-right">
                       <p className="text-lg font-bold text-red-700">KES {booking.totalPrice.toLocaleString()}</p>
                     </div>
+                    {booking.status === 'CONFIRMED' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-green-600 hover:bg-green-50"
+                        onClick={() => window.open(`/api/bookings/${booking.id}/ticket`, '_blank')}
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        Ticket
+                      </Button>
+                    )}
                     {booking.status === 'CONFIRMED' && (
                       <Button
                         variant="outline"
